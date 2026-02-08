@@ -186,6 +186,7 @@ if(CLIPPER2_EXAMPLES)
       MemLeakTest
       PolygonSamples
       RandomClipping
+      MetaDataTest
       UnionClipping
       RectClipping
       SimpleClipping
