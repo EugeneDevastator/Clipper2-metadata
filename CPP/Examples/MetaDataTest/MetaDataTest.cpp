@@ -55,75 +55,76 @@ void GetColorsForLoopId(int loop_id, unsigned int& fill_color, unsigned int& str
 
 void DoMetadataTest()
 {
-  std::cout << "=== Metadata Tracking Test ===\n";
+  std::cout << "=== Two-Step Metadata Test ===\n";
 
-  // Create two nested squares (outer and inner) - like a room with a hole
+  // Step 1: Create outer square (sector 1)
   Path64 outer_square;
-  outer_square.push_back(Point64(100, 100, 0, 1));  // segment 0, sector 1
-  outer_square.push_back(Point64(500, 100, 1, 1));  // segment 1, sector 1
-  outer_square.push_back(Point64(500, 500, 2, 1));  // segment 2, sector 1
-  outer_square.push_back(Point64(100, 500, 3, 1));  // segment 3, sector 1
+  outer_square.push_back(Point64(100, 100, 0, 1));
+  outer_square.push_back(Point64(500, 100, 1, 1));
+  outer_square.push_back(Point64(500, 500, 2, 1));
+  outer_square.push_back(Point64(100, 500, 3, 1));
 
+  // Inner square to cut hole (sector 2)
   Path64 inner_square;
-  inner_square.push_back(Point64(200, 200, 0, 2));  // segment 0, sector 2
-  inner_square.push_back(Point64(400, 200, 1, 2));  // segment 1, sector 2
-  inner_square.push_back(Point64(400, 400, 2, 2));  // segment 2, sector 2
-  inner_square.push_back(Point64(200, 400, 3, 2));  // segment 3, sector 2
+  inner_square.push_back(Point64(200, 200, 0, 2));
+  inner_square.push_back(Point64(400, 200, 1, 2));
+  inner_square.push_back(Point64(400, 400, 2, 2));
+  inner_square.push_back(Point64(200, 400, 3, 2));
 
-  // Create a cutting shape that intersects both
-  Path64 cutter;
-  cutter.push_back(Point64(250, 150, 0, 3));  // segment 0, sector 3
-  cutter.push_back(Point64(550, 150, 1, 3));  // segment 1, sector 3
-  cutter.push_back(Point64(550, 350, 2, 3));  // segment 2, sector 3
-  cutter.push_back(Point64(250, 350, 3, 3));  // segment 3, sector 3
+  std::cout << "Step 1: Cut hole in red square\n";
+  std::cout << "Outer square: sector_id=1\n";
+  std::cout << "Inner square: sector_id=2\n\n";
 
-  std::cout << "Outer square: sector_id=1, 4 segments (0-3)\n";
-  std::cout << "Inner square: sector_id=2, 4 segments (0-3)\n";
-  std::cout << "Cutter shape: sector_id=3, 4 segments (0-3)\n\n";
+  // Step 1: Cut hole - difference operation
+  Clipper64 c1;
+  c1.AddSubject(Paths64{outer_square});
+  c1.AddClip(Paths64{inner_square});
 
-  // Create the nested shape (outer - inner)
-  Paths64 nested;
-  nested.push_back(outer_square);
-  nested.push_back(inner_square);
+  Paths64 donut_result;
+  c1.Execute(ClipType::Difference, FillRule::NonZero, donut_result);
 
-  // Perform intersection
-  Clipper64 c64;
-  c64.AddSubject(nested);
-  c64.AddClip(Paths64{cutter});
+  std::cout << "Donut result has " << donut_result.size() << " path(s)\n";
 
-  Paths64 solution;
-  c64.Execute(ClipType::Intersection, FillRule::EvenOdd, solution);
+  // Step 2: Create cutting rectangle (sector 3)
+  Path64 cutter_rect;
+  cutter_rect.push_back(Point64(250, 50, 0, 3));
+  cutter_rect.push_back(Point64(450, 50, 1, 3));
+  cutter_rect.push_back(Point64(450, 350, 2, 3));
+  cutter_rect.push_back(Point64(250, 350, 3, 3));
 
-  std::cout << "Result has " << solution.size() << " path(s)\n\n";
+  std::cout << "\nStep 2: Cut both donut and inner square with rectangle\n";
+  std::cout << "Cutter rectangle: sector_id=3\n\n";
 
-  // Analyze the result
-  for (size_t p = 0; p < solution.size(); p++) {
-    std::cout << "Path " << p << " (" << solution[p].size() << " vertices):\n";
+  // Combine donut and inner square for final cut
+  Paths64 combined_shapes = donut_result;
+  combined_shapes.push_back(inner_square);
 
-    int intersections = 0;
-    int from_sector1 = 0, from_sector2 = 0, from_sector3 = 0;
+  // Step 2: Cut everything with rectangle
+  Clipper64 c2;
+  c2.AddSubject(combined_shapes);
+  c2.AddClip(Paths64{cutter_rect});
 
-    for (size_t i = 0; i < solution[p].size(); i++) {
-      const Point64& pt = solution[p][i];
+  Paths64 final_result;
+  c2.Execute(ClipType::Intersection, FillRule::NonZero, final_result);
 
+  std::cout << "Final result has " << final_result.size() << " path(s)\n\n";
+
+  // Analyze final result
+  for (size_t p = 0; p < final_result.size(); p++) {
+    std::cout << "Final path " << p << " (" << final_result[p].size() << " vertices):\n";
+
+    for (size_t i = 0; i < final_result[p].size(); i++) {
+      const Point64& pt = final_result[p][i];
       std::cout << "  v" << i << ": (" << pt.x << "," << pt.y << ")";
 
       if (pt.segment_id == -1) {
         std::cout << " [INTERSECTION]";
-        intersections++;
       } else {
         std::cout << " [seg:" << pt.segment_id << " sector:" << pt.loop_id << "]";
-        if (pt.loop_id == 1) from_sector1++;
-        else if (pt.loop_id == 2) from_sector2++;
-        else if (pt.loop_id == 3) from_sector3++;
       }
       std::cout << "\n";
     }
-
-    std::cout << "\n  Summary: " << intersections << " intersections, "
-              << from_sector1 << " from sector1, "
-              << from_sector2 << " from sector2, "
-              << from_sector3 << " from sector3\n\n";
+    std::cout << "\n";
   }
 
   // Create SVG visualization
@@ -138,23 +139,26 @@ void DoMetadataTest()
   AddColoredPath(svg, inner_square, fill, stroke);
 
   GetColorsForLoopId(3, fill, stroke);
-  AddColoredPath(svg, cutter, fill, stroke);
+  AddColoredPath(svg, cutter_rect, fill, stroke);
 
-  // Apply offset to solution paths for visual separation
-  for (size_t p = 0; p < solution.size(); p++) {
-    int path_loop_id = -1;
+  // Show intermediate donut result (lighter colors)
+  for (const Path64& donut_path : donut_result) {
+    int path_loop_id = donut_path.empty() ? -1 : donut_path[0].loop_id;
+    GetColorsForLoopId(path_loop_id, fill, stroke);
+    fill = (fill & 0xFF000000) | ((fill & 0x00FFFFFF) >> 1); // Make lighter
+    AddColoredPath(svg, donut_path, fill, stroke);
+  }
 
-    // Get loop_id from first vertex
-    if (!solution[p].empty()) {
-      path_loop_id = solution[p][0].loop_id;
-    }
+  // Apply inward offset to final result paths for visual separation
+  for (size_t p = 0; p < final_result.size(); p++) {
+    int path_loop_id = final_result[p].empty() ? -1 : final_result[p][0].loop_id;
 
-    std::cout << "Solution path " << p << " has loop_id: " << path_loop_id << "\n";
+    std::cout << "Final path " << p << " has loop_id: " << path_loop_id << "\n";
 
-    // Apply offset based on path index for visual separation
-    double offset_distance = 10.0 + (p * 5.0);  // 10, 15, 20, etc.
+    // Apply negative offset (inward) with square joins
+    double offset_distance = -(8.0 + (p * 4.0));
 
-    Paths64 offset_paths = InflatePaths(Paths64{solution[p]}, offset_distance, JoinType::Round, EndType::Polygon);
+    Paths64 offset_paths = InflatePaths(Paths64{final_result[p]}, offset_distance, JoinType::Square, EndType::Polygon);
 
     GetColorsForLoopId(path_loop_id, fill, stroke);
 
@@ -164,8 +168,8 @@ void DoMetadataTest()
     }
   }
 
-  SvgAddCaption(svg, "Solution paths with offset for visual separation", 20, 20);
-  SvgAddCaption(svg, "Red=ID1, Green=ID2, Blue=ID3, Black=Unknown(-1)", 20, 40);
+  SvgAddCaption(svg, "Two-step operation: 1) Cut hole 2) Cut with rectangle", 20, 20);
+  SvgAddCaption(svg, "Red=Sector1, Green=Sector2, Blue=Cutter", 20, 40);
 
   std::string filename = "metadata_test.svg";
   SvgSaveToFile(svg, filename, 800, 600, 20);
