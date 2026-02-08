@@ -55,7 +55,7 @@ void GetColorsForLoopId(int loop_id, unsigned int& fill_color, unsigned int& str
 
 void DoMetadataTest()
 {
-  std::cout << "=== Two-Step Metadata Test ===\n";
+  std::cout << "=== Three-Step Metadata Test ===\n";
 
   // Step 1: Create outer square (sector 1)
   Path64 outer_square;
@@ -85,6 +85,15 @@ void DoMetadataTest()
 
   std::cout << "Donut result has " << donut_result.size() << " path(s)\n";
 
+  // Step 1.5: Shrink donut and inner square
+  std::cout << "\nStep 1.5: Shrink both shapes\n";
+
+  Paths64 shrunken_donut = InflatePaths(donut_result, -5.0, JoinType::Square, EndType::Polygon);
+  Paths64 shrunken_inner = InflatePaths(Paths64{inner_square}, -5.0, JoinType::Square, EndType::Polygon);
+
+  std::cout << "Shrunken donut has " << shrunken_donut.size() << " path(s)\n";
+  std::cout << "Shrunken inner has " << shrunken_inner.size() << " path(s)\n";
+
   // Step 2: Create cutting rectangle (sector 3)
   Path64 cutter_rect;
   cutter_rect.push_back(Point64(250, 50, 0, 3));
@@ -92,31 +101,60 @@ void DoMetadataTest()
   cutter_rect.push_back(Point64(450, 350, 2, 3));
   cutter_rect.push_back(Point64(250, 350, 3, 3));
 
-  std::cout << "\nStep 2: Cut both donut and inner square with rectangle\n";
+  std::cout << "\nStep 2: Cut donut and inner square separately with rectangle\n";
   std::cout << "Cutter rectangle: sector_id=3\n\n";
 
-  // Combine donut and inner square for final cut
-  Paths64 combined_shapes = donut_result;
-  combined_shapes.push_back(inner_square);
+  // Step 2a: Cut shrunken donut with rectangle
+  Clipper64 c2a;
+  c2a.AddSubject(shrunken_donut);
+  c2a.AddClip(Paths64{cutter_rect});
 
-  // Step 2: Cut everything with rectangle
-  Clipper64 c2;
-  c2.AddSubject(combined_shapes);
-  c2.AddClip(Paths64{cutter_rect});
+  Paths64 cut_donut_result;
+  c2a.Execute(ClipType::Intersection, FillRule::NonZero, cut_donut_result);
 
-  Paths64 final_result;
-  c2.Execute(ClipType::Intersection, FillRule::NonZero, final_result);
+  // Step 2b: Cut shrunken inner square with rectangle
+  Clipper64 c2b;
+  c2b.AddSubject(shrunken_inner);
+  c2b.AddClip(Paths64{cutter_rect});
 
-  std::cout << "Final result has " << final_result.size() << " path(s)\n\n";
+  Paths64 cut_inner_result;
+  c2b.Execute(ClipType::Intersection, FillRule::NonZero, cut_inner_result);
 
-  // Analyze final result
-  for (size_t p = 0; p < final_result.size(); p++) {
-    std::cout << "Final path " << p << " (" << final_result[p].size() << " vertices):\n";
+  std::cout << "Cut donut result has " << cut_donut_result.size() << " path(s)\n";
+  std::cout << "Cut inner result has " << cut_inner_result.size() << " path(s)\n";
 
-    for (size_t i = 0; i < final_result[p].size(); i++) {
-      const Point64& pt = final_result[p][i];
+  // Step 3: Final offset on all results
+  std::cout << "\nStep 3: Final offset on all cut results\n";
+
+  Paths64 final_donut = InflatePaths(cut_donut_result, -3.0, JoinType::Square, EndType::Polygon);
+  Paths64 final_inner = InflatePaths(cut_inner_result, -3.0, JoinType::Square, EndType::Polygon);
+
+  std::cout << "Final donut has " << final_donut.size() << " path(s)\n";
+  std::cout << "Final inner has " << final_inner.size() << " path(s)\n\n";
+
+  // Analyze results
+  std::cout << "=== Final Donut Pieces ===\n";
+  for (size_t p = 0; p < final_donut.size(); p++) {
+    std::cout << "Donut path " << p << " (" << final_donut[p].size() << " vertices):\n";
+    for (size_t i = 0; i < final_donut[p].size(); i++) {
+      const Point64& pt = final_donut[p][i];
       std::cout << "  v" << i << ": (" << pt.x << "," << pt.y << ")";
+      if (pt.segment_id == -1) {
+        std::cout << " [INTERSECTION]";
+      } else {
+        std::cout << " [seg:" << pt.segment_id << " sector:" << pt.loop_id << "]";
+      }
+      std::cout << "\n";
+    }
+    std::cout << "\n";
+  }
 
+  std::cout << "=== Final Inner Pieces ===\n";
+  for (size_t p = 0; p < final_inner.size(); p++) {
+    std::cout << "Inner path " << p << " (" << final_inner[p].size() << " vertices):\n";
+    for (size_t i = 0; i < final_inner[p].size(); i++) {
+      const Point64& pt = final_inner[p][i];
+      std::cout << "  v" << i << ": (" << pt.x << "," << pt.y << ")";
       if (pt.segment_id == -1) {
         std::cout << " [INTERSECTION]";
       } else {
@@ -130,45 +168,59 @@ void DoMetadataTest()
   // Create SVG visualization
   SvgWriter svg;
 
-  // Show original shapes
+  // Show original shapes (very light)
   unsigned int fill, stroke;
   GetColorsForLoopId(1, fill, stroke);
+  fill = (fill & 0xFF000000) | ((fill & 0x00FFFFFF) >> 3); // Very light
   AddColoredPath(svg, outer_square, fill, stroke);
 
   GetColorsForLoopId(2, fill, stroke);
+  fill = (fill & 0xFF000000) | ((fill & 0x00FFFFFF) >> 3); // Very light
   AddColoredPath(svg, inner_square, fill, stroke);
 
   GetColorsForLoopId(3, fill, stroke);
+  fill = (fill & 0xFF000000) | ((fill & 0x00FFFFFF) >> 3); // Very light
   AddColoredPath(svg, cutter_rect, fill, stroke);
 
-  // Show intermediate donut result (lighter colors)
-  for (const Path64& donut_path : donut_result) {
-    int path_loop_id = donut_path.empty() ? -1 : donut_path[0].loop_id;
+  // Show intermediate donut result (medium opacity)
+  for (const Path64& path : donut_result) {
+    int path_loop_id = path.empty() ? -1 : path[0].loop_id;
     GetColorsForLoopId(path_loop_id, fill, stroke);
-    fill = (fill & 0xFF000000) | ((fill & 0x00FFFFFF) >> 1); // Make lighter
-    AddColoredPath(svg, donut_path, fill, stroke);
+    fill = (fill & 0xFF000000) | ((fill & 0x00FFFFFF) >> 1); // Medium opacity
+    AddColoredPath(svg, path, fill, stroke);
   }
 
-  // Apply inward offset to final result paths for visual separation
-  for (size_t p = 0; p < final_result.size(); p++) {
-    int path_loop_id = final_result[p].empty() ? -1 : final_result[p][0].loop_id;
-
-    std::cout << "Final path " << p << " has loop_id: " << path_loop_id << "\n";
-
-    // Apply negative offset (inward) with square joins
-    double offset_distance = -(8.0 + (p * 4.0));
-
-    Paths64 offset_paths = InflatePaths(Paths64{final_result[p]}, offset_distance, JoinType::Square, EndType::Polygon);
-
+  // Show shrunken shapes (lighter)
+  for (const Path64& path : shrunken_donut) {
+    int path_loop_id = path.empty() ? -1 : path[0].loop_id;
     GetColorsForLoopId(path_loop_id, fill, stroke);
-
-    // Draw all offset results
-    for (const Path64& offset_path : offset_paths) {
-      AddColoredPath(svg, offset_path, fill, stroke);
-    }
+    fill = (fill & 0xFF000000) | ((fill & 0x00FFFFFF) >> 1); // Lighter
+    stroke = (stroke & 0xFF000000) | ((stroke & 0x00FFFFFF) >> 1);
+    AddColoredPath(svg, path, fill, stroke);
   }
 
-  SvgAddCaption(svg, "Two-step operation: 1) Cut hole 2) Cut with rectangle", 20, 20);
+  for (const Path64& path : shrunken_inner) {
+    int path_loop_id = path.empty() ? -1 : path[0].loop_id;
+    GetColorsForLoopId(path_loop_id, fill, stroke);
+    fill = (fill & 0xFF000000) | ((fill & 0x00FFFFFF) >> 1); // Lighter
+    stroke = (stroke & 0xFF000000) | ((stroke & 0x00FFFFFF) >> 1);
+    AddColoredPath(svg, path, fill, stroke);
+  }
+
+  // Show final results with full colors
+  for (const Path64& path : final_donut) {
+    int path_loop_id = path.empty() ? -1 : path[0].loop_id;
+    GetColorsForLoopId(path_loop_id, fill, stroke);
+    AddColoredPath(svg, path, fill, stroke);
+  }
+
+  for (const Path64& path : final_inner) {
+    int path_loop_id = path.empty() ? -1 : path[0].loop_id;
+    GetColorsForLoopId(path_loop_id, fill, stroke);
+    AddColoredPath(svg, path, fill, stroke);
+  }
+
+  SvgAddCaption(svg, "Three-step: 1) Cut hole 2) Shrink 3) Cut separately 4) Final shrink", 20, 20);
   SvgAddCaption(svg, "Red=Sector1, Green=Sector2, Blue=Cutter", 20, 40);
 
   std::string filename = "metadata_test.svg";
