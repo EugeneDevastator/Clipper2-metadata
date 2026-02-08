@@ -117,6 +117,10 @@ namespace Clipper2Lib
   struct Point {
     T x;
     T y;
+	  // ===== BUILD ENGINE METADATA =====
+  int32_t segment_id;  // Original segment index in loop (-1 for intersections)
+  int32_t loop_id;     // Original loop/sector ID
+  // =================================
 #ifdef USINGZ
      z_type z;
 
@@ -138,10 +142,12 @@ namespace Clipper2Lib
       }
     }
 
-    explicit Point() : x(0), y(0), z(0) {};
+    explicit Point() : x(0), y(0), z(0), segment_id(-1), loop_id(-1) {};
 
     template <typename T2>
-    Point(const T2 x_, const T2 y_, const z_type z_ = 0)
+    Point(const T2 x_, const T2 y_, const z_type z_ = 0,
+          int32_t seg_id = -1, int32_t lp_id = -1)
+      : segment_id(seg_id), loop_id(lp_id)
     {
       Init(x_, y_);
       z = z_;
@@ -149,30 +155,40 @@ namespace Clipper2Lib
 
     template <typename T2>
     explicit Point(const Point<T2>& p)
+      : segment_id(p.segment_id), loop_id(p.loop_id)
     {
       Init(p.x, p.y, p.z);
     }
 
     template <typename T2>
     explicit Point(const Point<T2>& p, z_type z_)
+      : segment_id(p.segment_id), loop_id(p.loop_id)
     {
       Init(p.x, p.y, z_);
     }
 
     Point operator * (const double scale) const
     {
-      return Point(x * scale, y * scale, z);
+      return Point(x * scale, y * scale, z, segment_id, loop_id);
     }
 
     void SetZ(const z_type z_value) { z = z_value; }
 
     friend std::ostream& operator<<(std::ostream& os, const Point& point)
     {
-      os << point.x << "," << point.y << "," << point.z;
+#ifdef USINGZ
+      os << point.x << "," << point.y << "," << point.z
+         << " [seg:" << point.segment_id << " loop:" << point.loop_id << "]";
+#else
+      os << point.x << "," << point.y
+         << " [seg:" << point.segment_id << " loop:" << point.loop_id << "]";
+#endif
       return os;
     }
 
 #else
+
+    explicit Point() : x(0), y(0), segment_id(-1), loop_id(-1) {};
 
     template <typename T2>
     inline void Init(const T2 x_ = 0, const T2 y_ = 0)
@@ -190,13 +206,12 @@ namespace Clipper2Lib
       }
     }
 
-    explicit Point() : x(0), y(0) {};
-
     template <typename T2>
-    Point(const T2 x_, const T2 y_) { Init(x_, y_); }
-
-    template <typename T2>
-    explicit Point(const Point<T2>& p) { Init(p.x, p.y); }
+    explicit Point(const Point<T2>& p)
+      : segment_id(p.segment_id), loop_id(p.loop_id)
+    {
+      Init(p.x, p.y);
+    }
 
     Point operator * (const double scale) const
     {
@@ -222,17 +237,18 @@ namespace Clipper2Lib
 
     inline Point<T> operator-() const
     {
-      return Point<T>(-x, -y);
+      return Point<T>(-x, -y, segment_id, loop_id);
     }
 
     inline Point operator+(const Point& b) const
     {
-      return Point(x + b.x, y + b.y);
+      return Point(x + b.x, y + b.y, segment_id, loop_id);
     }
 
     inline Point operator-(const Point& b) const
     {
-      return Point(x - b.x, y - b.y);
+      return Point(x - b.x, y - b.y, segment_id, loop_id);
+
     }
 
     inline void Negate() { x = -x; y = -y; }
