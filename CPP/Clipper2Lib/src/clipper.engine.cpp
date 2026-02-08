@@ -1571,6 +1571,11 @@ namespace Clipper2Lib {
     GetLineIntersectPt(prevOp->pt, splitOp->pt,
       splitOp->next->pt, nextNextOp->pt, ip);
 
+    // ========== MARK AS INTERSECTION ==========
+    ip.segment_id = -1;  // Self-intersection
+    ip.loop_id = prevOp->pt.loop_id;  // Inherit from parent
+    // ==========================================
+
 #ifdef USINGZ
     if (zCallback_) zCallback_(prevOp->pt, splitOp->pt,
       splitOp->next->pt, nextNextOp->pt, ip);
@@ -2357,7 +2362,12 @@ namespace Clipper2Lib {
   {
     Point64 ip;
     if (!GetLineIntersectPt(e1.bot, e1.top, e2.bot, e2.top, ip))
-      ip = Point64(e1.curr_x, top_y); //parallel edges
+      ip = Point64(e1.curr_x, top_y,-1,-1); //parallel edges
+
+    // ========== MARK AS INTERSECTION ==========
+    ip.segment_id = -1;  // -1 = intersection point
+    ip.loop_id = -1;     // Could inherit from e1.bot.loop_id if you want
+    // ==========================================
 
     //rounding errors can occasionally place the calculated intersection
     //point either below or above the scanbeam, so check and correct ...
@@ -2383,10 +2393,14 @@ namespace Clipper2Lib {
         if (abs_dx1 < abs_dx2) ip.x = TopX(e1, ip.y);
         else ip.x = TopX(e2, ip.y);
       }
+
+      // ========== PRESERVE INTERSECTION MARKER AFTER CORRECTION ==========
+      ip.segment_id = -1;
+      ip.loop_id = -1;
+      // ===================================================================
     }
     intersect_nodes_.emplace_back(&e1, &e2, ip);
   }
-
   bool ClipperBase::BuildIntersectList(const int64_t top_y)
   {
     if (!actives_ || !actives_->next_in_ael) return false;
@@ -2571,9 +2585,11 @@ namespace Clipper2Lib {
     if (IsHotEdge(horz))
     {
 #ifdef USINGZ
-      OutPt* op = AddOutPt(horz, Point64(horz.curr_x, y, horz.bot.z));
+      Point64 hz_pt(horz.curr_x, y, horz.bot.z, -1, horz.bot.loop_id);
+      OutPt* op = AddOutPt(horz, hz_pt);
 #else
-      OutPt* op = AddOutPt(horz, Point64(horz.curr_x, y));
+      Point64 hz_pt(horz.curr_x, y, -1, horz.bot.loop_id);
+      OutPt* op = AddOutPt(horz, hz_pt);
 #endif
       AddTrialHorzJoin(op);
     }

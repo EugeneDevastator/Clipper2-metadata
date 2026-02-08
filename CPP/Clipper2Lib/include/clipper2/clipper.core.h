@@ -191,6 +191,12 @@ namespace Clipper2Lib
     explicit Point() : x(0), y(0), segment_id(-1), loop_id(-1) {};
 
     template <typename T2>
+    Point(const T2 x_, const T2 y_, int32_t seg_id = -1, int32_t lp_id = -1)
+      : segment_id(seg_id), loop_id(lp_id)
+    {
+      Init(x_, y_);
+    }
+    template <typename T2>
     inline void Init(const T2 x_ = 0, const T2 y_ = 0)
     {
       if constexpr (std::is_integral_v<T> &&
@@ -1074,14 +1080,22 @@ namespace Clipper2Lib
         static_cast<double>(offPt.y - seg1.y) * dy) /
       (Sqr(dx) + Sqr(dy));
     if (q < 0) q = 0; else if (q > 1) q = 1;
+
+    Point<T> result;
     if constexpr (std::is_integral_v<T>)
-      return Point<T>(
+      result = Point<T>(
         seg1.x + static_cast<T>(nearbyint(q * dx)),
-        seg1.y + static_cast<T>(nearbyint(q * dy)));
+        seg1.y + static_cast<T>(nearbyint(q * dy)),
+        offPt.segment_id,  // Preserve metadata from offPt
+        offPt.loop_id);
     else
-      return Point<T>(
+      result = Point<T>(
         seg1.x + static_cast<T>(q * dx),
-        seg1.y + static_cast<T>(q * dy));
+        seg1.y + static_cast<T>(q * dy),
+        offPt.segment_id,
+        offPt.loop_id);
+
+    return result;
   }
 
   enum class PointInPolygonResult { IsOn, IsInside, IsOutside };
