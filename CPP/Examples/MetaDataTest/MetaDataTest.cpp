@@ -16,12 +16,41 @@ const int display_width = 800, display_height = 600;
 
 void DoMetadataTest();
 void System(const std::string &filename);
+void AddColoredPath(SvgWriter& svg, const Path64& path, unsigned int fill_color, unsigned int stroke_color);
+void GetColorsForLoopId(int loop_id, unsigned int& fill_color, unsigned int& stroke_color);
 
 int main()
 {
   srand((unsigned)time(0));
   DoMetadataTest();
   return 0;
+}
+
+void AddColoredPath(SvgWriter& svg, const Path64& path, unsigned int fill_color, unsigned int stroke_color)
+{
+  svg.AddPath(path, false, FillRule::EvenOdd, fill_color, stroke_color, 2.0, true);
+}
+
+void GetColorsForLoopId(int loop_id, unsigned int& fill_color, unsigned int& stroke_color)
+{
+  switch(loop_id) {
+    case 1:
+      fill_color = 0x80FF6060;   // Light red
+      stroke_color = 0xFFCC0000; // Dark red
+      break;
+    case 2:
+      fill_color = 0x8060FF60;   // Light green
+      stroke_color = 0xFF00CC00; // Dark green
+      break;
+    case 3:
+      fill_color = 0x806060FF;   // Light blue
+      stroke_color = 0xFF0000CC; // Dark blue
+      break;
+    default:
+      fill_color = 0x80404040;   // Gray for unknown/intersection
+      stroke_color = 0xFF000000; // Black
+      break;
+  }
 }
 
 void DoMetadataTest()
@@ -101,15 +130,42 @@ void DoMetadataTest()
   SvgWriter svg;
 
   // Show original shapes
-  SvgAddSubject(svg, PathsD{TransformPath<double,int64_t>(outer_square)}, FillRule::EvenOdd);
-  SvgAddSubject(svg, PathsD{TransformPath<double,int64_t>(inner_square)}, FillRule::EvenOdd);
-  SvgAddClip(svg, PathsD{TransformPath<double,int64_t>(cutter)}, FillRule::EvenOdd);
+  unsigned int fill, stroke;
+  GetColorsForLoopId(1, fill, stroke);
+  AddColoredPath(svg, outer_square, fill, stroke);
 
-  // Show solution
-  SvgAddSolution(svg, solution, FillRule::EvenOdd, true);
+  GetColorsForLoopId(2, fill, stroke);
+  AddColoredPath(svg, inner_square, fill, stroke);
 
-  SvgAddCaption(svg, "Intersection of nested squares with cutter", 20, 20);
-  SvgAddCaption(svg, "Coordinates show segment_id and sector_id", 20, 40);
+  GetColorsForLoopId(3, fill, stroke);
+  AddColoredPath(svg, cutter, fill, stroke);
+
+  // Apply offset to solution paths for visual separation
+  for (size_t p = 0; p < solution.size(); p++) {
+    int path_loop_id = -1;
+
+    // Get loop_id from first vertex
+    if (!solution[p].empty()) {
+      path_loop_id = solution[p][0].loop_id;
+    }
+
+    std::cout << "Solution path " << p << " has loop_id: " << path_loop_id << "\n";
+
+    // Apply offset based on path index for visual separation
+    double offset_distance = 10.0 + (p * 5.0);  // 10, 15, 20, etc.
+
+    Paths64 offset_paths = InflatePaths(Paths64{solution[p]}, offset_distance, JoinType::Round, EndType::Polygon);
+
+    GetColorsForLoopId(path_loop_id, fill, stroke);
+
+    // Draw all offset results
+    for (const Path64& offset_path : offset_paths) {
+      AddColoredPath(svg, offset_path, fill, stroke);
+    }
+  }
+
+  SvgAddCaption(svg, "Solution paths with offset for visual separation", 20, 20);
+  SvgAddCaption(svg, "Red=ID1, Green=ID2, Blue=ID3, Black=Unknown(-1)", 20, 40);
 
   std::string filename = "metadata_test.svg";
   SvgSaveToFile(svg, filename, 800, 600, 20);
