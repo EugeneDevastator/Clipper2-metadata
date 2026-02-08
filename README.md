@@ -1,4 +1,10 @@
 # Clipper2
+Todo: need this metadata. for segments
+1. original seg id in loop
+2. original loop id
+for loops - only original loop id.
+
+for output - some data as to was it inner or outer (if makes sense)
 
 ### A Polygon <a href="https://en.wikipedia.org/wiki/Clipping_(computer_graphics)">Clipping</a>, <a href="https://en.wikipedia.org/wiki/Parallel_curve">Offsetting</a> and <a href="https://en.wikipedia.org/wiki/Constrained_Delaunay_triangulation">Triangulation</a> library (in C++, C# &amp; Delphi)<br>
 [![GitHub Actions C++ status](https://github.com/AngusJohnson/Clipper2/actions/workflows/actions_cpp.yml/badge.svg)](https://github.com/AngusJohnson/Clipper2/actions/workflows/actions_cpp.yml)&nbsp;[![C#](https://github.com/AngusJohnson/Clipper2/actions/workflows/actions_csharp.yml/badge.svg)](https://github.com/AngusJohnson/Clipper2/actions/workflows/actions_csharp.yml)&nbsp;[![License](https://img.shields.io/badge/License-Boost_1.0-lightblue.svg)](https://www.boost.org/LICENSE_1_0.txt)
