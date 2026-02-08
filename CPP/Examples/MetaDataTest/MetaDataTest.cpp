@@ -88,8 +88,9 @@ void DoMetadataTest()
   // Step 1.5: Shrink donut and inner square
   std::cout << "\nStep 1.5: Shrink both shapes\n";
 
-  Paths64 shrunken_donut = InflatePaths(donut_result, -5.0, JoinType::Square, EndType::Polygon);
-  Paths64 shrunken_inner = InflatePaths(Paths64{inner_square}, -5.0, JoinType::Square, EndType::Polygon);
+  // Use JoinType::Miter for sharpest corners, with high miter limit
+  Paths64 shrunken_donut = InflatePaths(donut_result, -5.0, JoinType::Miter, EndType::Polygon, 10.0);
+  Paths64 shrunken_inner = InflatePaths(Paths64{inner_square}, -5.0, JoinType::Miter, EndType::Polygon, 10.0);
 
   std::cout << "Shrunken donut has " << shrunken_donut.size() << " path(s)\n";
   std::cout << "Shrunken inner has " << shrunken_inner.size() << " path(s)\n";
@@ -126,8 +127,9 @@ void DoMetadataTest()
   // Step 3: Final offset on all results
   std::cout << "\nStep 3: Final offset on all cut results\n";
 
-  Paths64 final_donut = InflatePaths(cut_donut_result, -3.0, JoinType::Square, EndType::Polygon);
-  Paths64 final_inner = InflatePaths(cut_inner_result, -3.0, JoinType::Square, EndType::Polygon);
+  // Use JoinType::Miter for final offset too
+  Paths64 final_donut = InflatePaths(cut_donut_result, -3.0, JoinType::Miter, EndType::Polygon, 10.0);
+  Paths64 final_inner = InflatePaths(cut_inner_result, -3.0, JoinType::Miter, EndType::Polygon, 10.0);
 
   std::cout << "Final donut has " << final_donut.size() << " path(s)\n";
   std::cout << "Final inner has " << final_inner.size() << " path(s)\n\n";
