@@ -191,7 +191,7 @@ namespace Clipper2Lib
     explicit Point() : x(0), y(0), segment_id(-1), loop_id(-1) {};
 
     template <typename T2>
-    Point(const T2 x_, const T2 y_, int32_t seg_id = -1, int32_t lp_id = -1)
+    Point(const T2 x_, const T2 y_, int32_t seg_id, int32_t lp_id)
       : segment_id(seg_id), loop_id(lp_id)
     {
       Init(x_, y_);
@@ -291,10 +291,10 @@ namespace Clipper2Lib
 
   static const Point64 InvalidPoint64 = Point64(
     (std::numeric_limits<int64_t>::max)(),
-    (std::numeric_limits<int64_t>::max)());
+    (std::numeric_limits<int64_t>::max)(),-1,-1);
   static const PointD InvalidPointD = PointD(
     (std::numeric_limits<double>::max)(),
-    (std::numeric_limits<double>::max)());
+    (std::numeric_limits<double>::max)(),-1,-1);
 
   template<typename T>
   static inline Point<T> MidPoint(const Point<T>& p1, const Point<T>& p2)
@@ -357,17 +357,33 @@ namespace Clipper2Lib
 
     Point<T> MidPoint() const
     {
-      return Point<T>((left + right) / 2, (top + bottom) / 2);
+      return Point<T>((left + right) / 2, (top + bottom) / 2,-1,-1);
     }
+/*
+ *
+                 from C:/Eugene/GitHub/Cipper2meta/CPP/Utils/ClipFileLoad.cpp:5:
+C:/Users/omnis/AppData/Local/Programs/CLion/bin/mingw/lib/gcc/x86_64-w64-mingw32/13.1.0/include/c++/bits/new_allocator.h: In instantiation of 'void std::__new_allocator<_Tp>::construct(_Up*, _Args&& ...) [with _Up = Clipper2Lib::Point<long long int>; _Args = {const long long int&, const long long int&}; _Tp = Clipper2Lib::Point<long long int>]':
+C:/Users/omnis/AppData/Local/Programs/CLion/bin/mingw/lib/gcc/x86_64-w64-mingw32/13.1.0/include/c++/bits/alloc_traits.h:537:17:   required from 'static void std::allocator_traits<std::allocator<_CharT> >::construct(allocator_type&, _Up*, _Args&& ...) [with _Up = Clipper2Lib::Point<long long int>; _Args = {const long long int&, const long long int&}; _Tp = Clipper2Lib::Point<long long int>; allocator_type = std::allocator<Clipper2Lib::Point<long long int> >]'
+C:/Users/omnis/AppData/Local/Programs/CLion/bin/mingw/lib/gcc/x86_64-w64-mingw32/13.1.0/include/c++/bits/vector.tcc:117:30:   required from 'std::vector<_Tp, _Alloc>::reference std::vector<_Tp, _Alloc>::emplace_back(_Args&& ...) [with _Args = {const long long int&, const long long int&}; _Tp = Clipper2Lib::Point<long long int>; _Alloc = std::allocator<Clipper2Lib::Point<long long int> >; reference = Clipper2Lib::Point<long long int>&]'
+C:/Eugene/GitHub/Cipper2meta/CPP/Clipper2Lib/include/clipper2/clipper.core.h:367:26:   required from 'Clipper2Lib::Path<T> Clipper2Lib::Rect<T>::AsPath() const [with T = long long int; Clipper2Lib::Path<T> = std::vector<Clipper2Lib::Point<long long int>, std::allocator<Clipper2Lib::Point<long long int> > >]'
+C:/Eugene/GitHub/Cipper2meta/CPP/Clipper2Lib/include/clipper2/clipper.rectclip.h:61:32:   required from here
+C:/Users/omnis/AppData/Local/Programs/CLion/bin/mingw/lib/gcc/x86_64-w64-mingw32/13.1.0/include/c++/bits/new_allocator.h:187:11: error: no matching function for call to 'Clipper2Lib::Point<long long int>::Point(const long long int&, const long long int&)'
+  187 |         { ::new((void *)__p) _Up(std::forward<_Args>(__args)...); }
+      |           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from C:/Eugene/GitHub/Cipper2meta/CPP/Clipper2Lib/include/clipper2/clipper.h:13,
+                 from C:/Eugene/GitHub/Cipper2meta/CPP/Utils/ClipFileLoad.h:10:
+C:/Eugene/GitHub/Cipper2meta/CPP/Clipper2Lib/include/clipper2/clipper.core.h:216:14: note: candidate: 'template<class T2> Clipper2Lib::Point<T>::Point(const Clipper2Lib::Point<T2>&) [with T = long long int]'
+  216 |     explicit Point(const Point<T2>& p)
+ **/
 
     Path<T> AsPath() const
     {
       Path<T> result;
       result.reserve(4);
-      result.emplace_back(left, top);
-      result.emplace_back(right, top);
-      result.emplace_back(right, bottom);
-      result.emplace_back(left, bottom);
+      result.emplace_back(left, top, -1, -1);
+      result.emplace_back(right, top, -1, -1);
+      result.emplace_back(right, bottom, -1, -1);
+      result.emplace_back(left, bottom, -1, -1);
       return result;
     }
 
@@ -564,7 +580,7 @@ namespace Clipper2Lib
 #else
     std::transform(path.begin(), path.end(), back_inserter(result),
       [scale_x, scale_y](const auto& pt)
-      { return Point<T1>(pt.x * scale_x, pt.y * scale_y); });
+      { return Point<T1>(pt.x * scale_x, pt.y * scale_y, pt.segment_id, pt. loop_id); });
 #endif
     return result;
   }
@@ -1002,7 +1018,7 @@ namespace Clipper2Lib
 #ifdef USINGZ
     return Point<T>(pt.x + dx, pt.y + dy, pt.z);
 #else
-    return Point<T>(pt.x + dx, pt.y + dy);
+    return Point<T>(pt.x + dx, pt.y + dy, pt.segment_id, pt.loop_id);
 #endif
   }
 
@@ -1013,7 +1029,7 @@ namespace Clipper2Lib
 #ifdef USINGZ
     return Point<T>(pivot.x + (pivot.x - pt.x), pivot.y + (pivot.y - pt.y), pt.z);
 #else
-    return Point<T>(pivot.x + (pivot.x - pt.x), pivot.y + (pivot.y - pt.y));
+    return Point<T>(pivot.x + (pivot.x - pt.x), pivot.y + (pivot.y - pt.y), pt.segment_id, pt.loop_id);
 #endif
   }
 

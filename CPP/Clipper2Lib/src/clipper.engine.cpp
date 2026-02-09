@@ -2659,7 +2659,7 @@ namespace Clipper2Lib {
           }
         }
 
-        pt = Point64(e->curr_x, horz.bot.y);
+        pt = Point64(e->curr_x, horz.bot.y, horz.bot.segment_id, horz.bot.loop_id);
         if (is_left_to_right)
         {
           IntersectEdges(horz, *e, pt);
@@ -3092,7 +3092,7 @@ namespace Clipper2Lib {
 #ifdef USINGZ
     path.emplace_back(lastPt.x * inv_scale, lastPt.y * inv_scale, lastPt.z);
 #else
-    path.emplace_back(lastPt.x * inv_scale, lastPt.y * inv_scale);
+    path.emplace_back(lastPt.x * inv_scale, lastPt.y * inv_scale,lastPt.segment_id,lastPt.loop_id);
 #endif
 
     while (op2 != op)
@@ -3103,7 +3103,7 @@ namespace Clipper2Lib {
 #ifdef USINGZ
         path.emplace_back(lastPt.x * inv_scale, lastPt.y * inv_scale, lastPt.z);
 #else
-        path.emplace_back(lastPt.x * inv_scale, lastPt.y * inv_scale);
+        path.emplace_back(lastPt.x * inv_scale, lastPt.y * inv_scale, lastPt.segment_id, lastPt.loop_id);
 #endif
 
       }

@@ -36,7 +36,7 @@ const double arc_const = 0.002; // <-- 1/500
 void GetLowestClosedPathInfo(const Paths64& paths, std::optional<size_t>& idx, bool& is_neg_area)
 {
 	idx.reset();
-	Point64 botPt = Point64(INT64_MAX, INT64_MIN);
+	Point64 botPt = Point64(INT64_MAX, INT64_MIN,-1,-1);
 	for (size_t i = 0; i < paths.size(); ++i)
 	{
 		double a = MAX_DBL;
@@ -53,6 +53,8 @@ void GetLowestClosedPathInfo(const Paths64& paths, std::optional<size_t>& idx, b
       idx = i;
 			botPt.x = pt.x;
 			botPt.y = pt.y;
+			botPt.loop_id = pt.loop_id;
+			botPt.segment_id = pt.segment_id;
 		}
 	}
 }
@@ -69,13 +71,13 @@ inline double Hypot(double x, double y)
 
 static PointD GetUnitNormal(const Point64& pt1, const Point64& pt2)
 {
-	if (pt1 == pt2) return PointD(0.0, 0.0);
+	if (pt1 == pt2) return PointD(0.0, 0.0, pt1.segment_id, pt1.loop_id);
 	double dx = static_cast<double>(pt2.x - pt1.x);
 	double dy = static_cast<double>(pt2.y - pt1.y);
 	double inverse_hypot = 1.0 / Hypot(dx, dy);
 	dx *= inverse_hypot;
 	dy *= inverse_hypot;
-	return PointD(dy, -dx);
+	return PointD(dy, -dx, pt1.segment_id, pt1.loop_id);
 }
 
 inline bool AlmostZero(double value, double epsilon = 0.001)
@@ -86,14 +88,14 @@ inline bool AlmostZero(double value, double epsilon = 0.001)
 inline PointD NormalizeVector(const PointD& vec)
 {
 	double h = Hypot(vec.x, vec.y);
-	if (AlmostZero(h)) return PointD(0,0);
+	if (AlmostZero(h)) return PointD(0,0, vec.segment_id,vec.segment_id);
 	double inverseHypot = 1 / h;
-	return PointD(vec.x * inverseHypot, vec.y * inverseHypot);
+	return PointD(vec.x * inverseHypot, vec.y * inverseHypot, vec.segment_id,vec.loop_id);
 }
 
 inline PointD GetAvgUnitVector(const PointD& vec1, const PointD& vec2)
 {
-	return NormalizeVector(PointD(vec1.x + vec2.x, vec1.y + vec2.y));
+	return NormalizeVector(PointD(vec1.x + vec2.x, vec1.y + vec2.y, vec1.segment_id,vec1.loop_id));
 }
 
 inline bool IsClosedPath(EndType et)
@@ -104,9 +106,9 @@ inline bool IsClosedPath(EndType et)
 static inline Point64 GetPerpendic(const Point64& pt, const PointD& norm, double delta)
 {
 #ifdef USINGZ
-	return Point64(pt.x + norm.x * delta, pt.y + norm.y * delta, pt.z);
+	return Point64(pt.x + norm.x * delta, pt.y + norm.y * delta, pt.z, pt.segment_id, pt.loop_id);
 #else
-	return Point64(pt.x + norm.x * delta, pt.y + norm.y * delta);
+	return Point64(pt.x + norm.x * delta, pt.y + norm.y * delta, pt.segment_id, pt.loop_id);
 #endif
 }
 
@@ -115,7 +117,7 @@ inline PointD GetPerpendicD(const Point64& pt, const PointD& norm, double delta)
 #ifdef USINGZ
 	return PointD(pt.x + norm.x * delta, pt.y + norm.y * delta, pt.z);
 #else
-	return PointD(pt.x + norm.x * delta, pt.y + norm.y * delta);
+	return PointD(pt.x + norm.x * delta, pt.y + norm.y * delta, pt.segment_id, pt.loop_id);
 #endif
 }
 
@@ -197,8 +199,8 @@ void ClipperOffset::DoBevel(const Path64& path, size_t j, size_t k)
 		pt1 = PointD(path[j].x - abs_delta * norms[j].x, path[j].y - abs_delta * norms[j].y, path[j].z);
 		pt2 = PointD(path[j].x + abs_delta * norms[j].x, path[j].y + abs_delta * norms[j].y, path[j].z);
 #else
-		pt1 = PointD(path[j].x - abs_delta * norms[j].x, path[j].y - abs_delta * norms[j].y);
-		pt2 = PointD(path[j].x + abs_delta * norms[j].x, path[j].y + abs_delta * norms[j].y);
+		pt1 = PointD(path[j].x - abs_delta * norms[j].x, path[j].y - abs_delta * norms[j].y, path[j].segment_id, path[j].loop_id);
+		pt2 = PointD(path[j].x + abs_delta * norms[j].x, path[j].y + abs_delta * norms[j].y, path[j].segment_id, path[j].loop_id);
 #endif
 	}
 	else
@@ -207,8 +209,8 @@ void ClipperOffset::DoBevel(const Path64& path, size_t j, size_t k)
 		pt1 = PointD(path[j].x + group_delta_ * norms[k].x, path[j].y + group_delta_ * norms[k].y, path[j].z);
 		pt2 = PointD(path[j].x + group_delta_ * norms[j].x, path[j].y + group_delta_ * norms[j].y, path[j].z);
 #else
-		pt1 = PointD(path[j].x + group_delta_ * norms[k].x, path[j].y + group_delta_ * norms[k].y);
-		pt2 = PointD(path[j].x + group_delta_ * norms[j].x, path[j].y + group_delta_ * norms[j].y);
+		pt1 = PointD(path[j].x + group_delta_ * norms[k].x, path[j].y + group_delta_ * norms[k].y, path[j].segment_id, path[j].loop_id);
+		pt2 = PointD(path[j].x + group_delta_ * norms[j].x, path[j].y + group_delta_ * norms[j].y, path[j].segment_id, path[j].loop_id);
 #endif
 	}
     path_out.emplace_back(pt1);
@@ -219,11 +221,11 @@ void ClipperOffset::DoSquare(const Path64& path, size_t j, size_t k)
 {
 	PointD vec;
 	if (j == k)
-		vec = PointD(norms[j].y, -norms[j].x);
+		vec = PointD(norms[j].y, -norms[j].x, norms[j].segment_id, norms[j].loop_id);
 	else
 		vec = GetAvgUnitVector(
-			PointD(-norms[k].y, norms[k].x),
-			PointD(norms[j].y, -norms[j].x));
+			PointD(-norms[k].y, norms[k].x, norms[k].segment_id, norms[k].loop_id),
+			PointD(norms[j].y, -norms[j].x, norms[j].segment_id, norms[j].loop_id));
 
 	double abs_delta = std::abs(group_delta_);
 
@@ -237,7 +239,7 @@ void ClipperOffset::DoSquare(const Path64& path, size_t j, size_t k)
 	PointD pt3 = GetPerpendicD(path[k], norms[k], group_delta_);
 	if (j == k)
 	{
-		PointD pt4 = PointD(pt3.x + vec.x * group_delta_, pt3.y + vec.y * group_delta_);
+		PointD pt4 = PointD(pt3.x + vec.x * group_delta_, pt3.y + vec.y * group_delta_, vec.segment_id, vec.loop_id);
 		PointD pt = ptQ;
 		GetLineIntersectPt(pt1, pt2, pt3, pt4, pt);
 		//get the second intersect point through reflecion
@@ -266,7 +268,7 @@ void ClipperOffset::DoMiter(const Path64& path, size_t j, size_t k, double cos_a
 #else
     path_out.emplace_back(
 		path[j].x + (norms[k].x + norms[j].x) * q,
-        path[j].y + (norms[k].y + norms[j].y) * q);
+        path[j].y + (norms[k].y + norms[j].y) * q, norms[k].segment_id, norms[k].loop_id);
 #endif
 }
 
@@ -286,23 +288,23 @@ void ClipperOffset::DoRound(const Path64& path, size_t j, size_t k, double angle
 	}
 
 	Point64 pt = path[j];
-	PointD offsetVec = PointD(norms[k].x * group_delta_, norms[k].y * group_delta_);
+	PointD offsetVec = PointD(norms[k].x * group_delta_, norms[k].y * group_delta_,norms[k].segment_id, norms[k].loop_id);
 
 	if (j == k) offsetVec.Negate();
 #ifdef USINGZ
     path_out.emplace_back(pt.x + offsetVec.x, pt.y + offsetVec.y, pt.z);
 #else
-    path_out.emplace_back(pt.x + offsetVec.x, pt.y + offsetVec.y);
+    path_out.emplace_back(pt.x + offsetVec.x, pt.y + offsetVec.y, pt.segment_id, pt.loop_id);
 #endif
 	int steps = static_cast<int>(std::ceil(steps_per_rad_ * std::abs(angle))); // #448, #456
 	for (int i = 1; i < steps; ++i) // ie 1 less than steps
 	{
 		offsetVec = PointD(offsetVec.x * step_cos_ - step_sin_ * offsetVec.y,
-			offsetVec.x * step_sin_ + offsetVec.y * step_cos_);
+			offsetVec.x * step_sin_ + offsetVec.y * step_cos_,offsetVec.segment_id,offsetVec.loop_id);
 #ifdef USINGZ
         path_out.emplace_back(pt.x + offsetVec.x, pt.y + offsetVec.y, pt.z);
 #else
-        path_out.emplace_back(pt.x + offsetVec.x, pt.y + offsetVec.y);
+        path_out.emplace_back(pt.x + offsetVec.x, pt.y + offsetVec.y, pt.segment_id, pt.loop_id);
 #endif
 	}
     path_out.emplace_back(GetPerpendic(path[j], norms[j], group_delta_));
@@ -373,7 +375,9 @@ void ClipperOffset::OffsetPolygon(Group& group, const Path64& path)
 {
 	path_out.clear();
 	for (Path64::size_type j = 0, k = path.size() - 1; j < path.size(); k = j, ++j)
-		OffsetPoint(group, path, j, k);	
+		OffsetPoint(group, path, j, k);
+	if (path_out.size() > 0 && path.size() > 0)
+		path_out[0].loop_id=path[0].loop_id;
     solution->emplace_back(path_out);
 }
 
@@ -422,7 +426,7 @@ void ClipperOffset::OffsetOpenPath(Group& group, const Path64& path)
 
 	// reverse normals
 	for (size_t i = highI; i > 0; --i)
-		norms[i] = PointD(-norms[i - 1].x, -norms[i - 1].y);
+		norms[i] = PointD(-norms[i - 1].x, -norms[i - 1].y,norms[i - 1].segment_id,norms[i - 1].loop_id);
 	norms[0] = norms[highI];
 
 	// do the line end cap
@@ -518,6 +522,7 @@ void ClipperOffset::DoGroupOffset(Group& group)
 				int d = (int)std::ceil(abs_delta);
 				Rect64 r = Rect64(pt.x - d, pt.y - d, pt.x + d, pt.y + d);
 				path_out = r.AsPath();
+				path_out[0].loop_id=pt.loop_id;
 #ifdef USINGZ
 				for (auto& p : path_out) p.z = pt.z;
 #endif

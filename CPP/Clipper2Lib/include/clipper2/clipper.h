@@ -165,7 +165,7 @@ namespace Clipper2Lib {
     Path<T> result;
     result.reserve(path.size());
     std::transform(path.begin(), path.end(), back_inserter(result),
-      [dx, dy](const auto& pt) { return Point<T>(pt.x + dx, pt.y +dy); });
+      [dx, dy](const auto& pt) { return Point<T>(pt.x + dx, pt.y +dy, pt.segment_id, pt.loop_id); });
     return result;
   }
 
@@ -624,10 +624,10 @@ namespace Clipper2Lib {
     double dx = co, dy = si;
     Path<T> result;
     result.reserve(steps);
-    result.emplace_back(center.x + radiusX, static_cast<double>(center.y));
+    result.emplace_back(center.x + radiusX, static_cast<double>(center.y), center.segment_id, center.loop_id);
     for (size_t i = 1; i < steps; ++i)
     {
-      result.emplace_back(center.x + radiusX * dx, center.y + radiusY * dy);
+      result.emplace_back(center.x + radiusX * dx, center.y + radiusY * dy, center.segment_id, center.loop_id);
       double x = dx * co - dy * si;
       dy = dy * co + dx * si;
       dx = x;

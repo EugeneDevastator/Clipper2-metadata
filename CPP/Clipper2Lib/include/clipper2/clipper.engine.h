@@ -140,7 +140,7 @@ namespace Clipper2Lib {
 		Point64 pt;
 		Active* edge1;
 		Active* edge2;
-		IntersectNode() : pt(Point64(0,0)), edge1(NULL), edge2(NULL) {}
+		IntersectNode() : pt(Point64(0,0,-1,-1)), edge1(NULL), edge2(NULL) {}
 			IntersectNode(Active* e1, Active* e2, Point64& pt_) :
 			pt(pt_), edge1(e1), edge2(e2) {}
 	};
